@@ -28,7 +28,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+        <Link href="/">
           <Image
             src="/logo.png"
             alt="ChainBooks"
@@ -36,10 +37,11 @@ export function Navbar() {
             height={48}
             className="h-9 w-9 rounded-lg dark:brightness-110"
           />
+        </Link>
           <span className="text-xl font-brand text-primary">
             ChainBooks
           </span>
-        </Link>
+        </div>
 
         <nav className="hidden items-center gap-6 md:flex">
           <Link
