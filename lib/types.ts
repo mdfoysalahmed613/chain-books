@@ -8,6 +8,7 @@ export type Book = {
   price: number;
   cover_image_url: string | null;
   download_url: string;
+  pingpay_link: string | null;
   category: string;
   page_count: number | null;
   created_at: string;

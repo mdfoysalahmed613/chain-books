@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -70,10 +71,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">B</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight">ChainBooks</span>
+            <Image
+              src="/logo.png"
+              alt="ChainBooks"
+              width={48}
+              height={48}
+              className="h-9 w-9 rounded-lg dark:brightness-110"
+            />
+            <span className="text-xl font-brand text-primary">ChainBooks</span>
           </Link>
           <p className="mt-4 text-sm text-muted-foreground">
             Sign in to access your purchased books

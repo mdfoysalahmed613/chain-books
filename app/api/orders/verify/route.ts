@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       `https://pay.pingpay.io/api/checkout/sessions/${encodeURIComponent(sessionId)}`,
       {
         headers: {
-          "x-publishable-key": process.env.NEXT_PUBLIC_PINGPAY_PUBLISHABLE_KEY!,
+          "x-api-key": process.env.PINGPAY_API_KEY!,
         },
       },
     );

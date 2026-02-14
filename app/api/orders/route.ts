@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-publishable-key": process.env.NEXT_PUBLIC_PINGPAY_PUBLISHABLE_KEY!,
+          "x-api-key": process.env.PINGPAY_API_KEY!,
         },
         body: JSON.stringify({
           amount: {

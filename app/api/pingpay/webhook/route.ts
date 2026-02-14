@@ -10,18 +10,20 @@ export async function POST(request: NextRequest) {
 
     // Verify webhook signature
     const webhookSecret = process.env.PINGPAY_WEBHOOK_SECRET;
-    if (webhookSecret && signature && timestamp) {
-      const expectedSignature = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(`${timestamp}.${rawBody}`)
-        .digest("hex");
+    if (!webhookSecret || !signature || !timestamp) {
+      return NextResponse.json(
+        { error: "Missing signature or webhook secret" },
+        { status: 401 },
+      );
+    }
 
-      if (signature !== expectedSignature) {
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 401 },
-        );
-      }
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(`${timestamp}.${rawBody}`)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const body = JSON.parse(rawBody);
