@@ -97,7 +97,6 @@ export async function POST(request: NextRequest) {
 
     const data = await pingpayRes.json();
     const {session} = data;
-    console.log("PingPay session created:", data);
     // Upsert purchase record
     if (existingPurchase) {
       await supabase

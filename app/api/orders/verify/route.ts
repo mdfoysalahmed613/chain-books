@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Check if already completed in our database
     const { data: purchase } = await supabase
       .from("purchases")
-      .select("id, payment_status, session_id, books(title)")
+      .select("id, payment_status, session_id, payment_id, books(title)")
       .eq("session_id", sessionId)
       .eq("user_id", user.id)
       .single();
@@ -60,6 +60,12 @@ export async function GET(request: NextRequest) {
     );
 
     if (!pingpayRes.ok) {
+      console.error(
+        "PingPay session retrieve failed:",
+        pingpayRes.status,
+        await pingpayRes.text(),
+      );
+      // Even if PingPay API fails, return current DB status so frontend keeps polling
       return NextResponse.json({
         payment_status: purchase.payment_status,
         book_title: bookTitle,
@@ -67,23 +73,20 @@ export async function GET(request: NextRequest) {
     }
 
     const pingpayData = await pingpayRes.json();
-    const sessionStatus = pingpayData.session?.status;
+    // Handle both wrapped { session: { status } } and flat { status } responses
+    const sessionObj = pingpayData.session || pingpayData;
+    const sessionStatus = sessionObj.status?.toUpperCase();
 
-    if (sessionStatus === "COMPLETED" || sessionStatus === "completed") {
-      const { error: updateError } = await supabase
+    if (sessionStatus === "COMPLETED") {
+      const paymentId = sessionObj.paymentId || purchase.payment_id;
+
+      await supabase
         .from("purchases")
         .update({
           payment_status: "completed",
-          payment_id: pingpayData.session?.paymentId || null,
+          payment_id: paymentId || null,
         })
         .eq("id", purchase.id);
-
-      if (updateError) {
-        return NextResponse.json({
-          payment_status: purchase.payment_status,
-          book_title: bookTitle,
-        });
-      }
 
       return NextResponse.json({
         payment_status: "completed",
@@ -93,9 +96,8 @@ export async function GET(request: NextRequest) {
 
     if (
       sessionStatus === "EXPIRED" ||
-      sessionStatus === "expired" ||
       sessionStatus === "FAILED" ||
-      sessionStatus === "failed"
+      sessionStatus === "CANCELLED"
     ) {
       await supabase
         .from("purchases")
@@ -112,7 +114,8 @@ export async function GET(request: NextRequest) {
       payment_status: purchase.payment_status,
       book_title: bookTitle,
     });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/orders/verify error:", error);
     return NextResponse.json(
       { error: "internal_server_error" },
       { status: 500 },

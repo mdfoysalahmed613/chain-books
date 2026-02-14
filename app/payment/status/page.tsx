@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
-type PaymentState = "polling" | "completed" | "failed" | "not_found";
+type PaymentState = "polling" | "completed" | "failed" | "not_found" | "timeout";
 
 function PaymentStatusContent() {
   const searchParams = useSearchParams();
@@ -76,7 +76,7 @@ function PaymentStatusContent() {
 
     const maxTimeout = setTimeout(() => {
       cancelled = true;
-      setStatus("not_found");
+      setStatus("timeout");
     }, 5 * 60 * 1000);
 
     return () => {
@@ -164,6 +164,25 @@ function PaymentStatusContent() {
           <Button className="mt-6" asChild>
             <Link href="/store">Back to Store</Link>
           </Button>
+        </>
+      )}
+
+      {status === "timeout" && (
+        <>
+          <Loader2 className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h1 className="mt-6 text-xl font-bold">Verification Taking Longer Than Expected</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your payment may still be processing. Check your dashboard
+            in a few minutes to see if the purchase was confirmed.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button asChild>
+              <Link href="/dashboard">Go to Dashboard</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/store">Back to Store</Link>
+            </Button>
+          </div>
         </>
       )}
     </div>

@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     const webhookSecret = process.env.PINGPAY_WEBHOOK_SECRET;
     if (!webhookSecret || !signature || !timestamp) {
+      console.error("Webhook missing signature or secret");
       return NextResponse.json(
         { error: "Missing signature or webhook secret" },
         { status: 401 },
@@ -23,16 +24,19 @@ export async function POST(request: NextRequest) {
       .digest("hex");
 
     if (signature !== expectedSignature) {
+      console.error("Webhook signature mismatch");
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const body = JSON.parse(rawBody);
+    console.log("PingPay webhook received:", JSON.stringify(body));
 
     // PingPay webhook payload: { id, type, resourceId, data, createdAt }
     const eventType = body.type;
     const resourceId = body.resourceId;
 
     if (!eventType) {
+      console.error("Webhook missing event type:", JSON.stringify(body));
       return NextResponse.json(
         { error: "Missing event type" },
         { status: 400 },
@@ -44,34 +48,42 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    // Try to find purchase by payment_id (resourceId from webhook)
+    // Extract sessionId from all possible locations in the payload
+    const sessionId =
+      body.data?.sessionId || body.sessionId || body.data?.session_id;
+    const paymentId = resourceId || body.data?.paymentId || body.paymentId;
+
     let purchase = null;
-    let lookupError = null;
 
-    if (resourceId) {
+    // Try to find purchase by session_id first (most reliable, always stored)
+    if (sessionId) {
       const result = await supabase
         .from("purchases")
         .select("id, payment_status")
-        .eq("payment_id", resourceId)
+        .eq("session_id", sessionId)
         .single();
 
       purchase = result.data;
-      lookupError = result.error;
     }
 
-    // Fallback: try session_id from data payload
-    if (!purchase && body.data?.sessionId) {
+    // Fallback: try payment_id (resourceId from webhook)
+    if (!purchase && paymentId) {
       const result = await supabase
         .from("purchases")
         .select("id, payment_status")
-        .eq("session_id", body.data.sessionId)
+        .eq("payment_id", paymentId)
         .single();
 
       purchase = result.data;
-      lookupError = result.error;
     }
 
-    if (lookupError || !purchase) {
+    if (!purchase) {
+      console.error(
+        "Webhook: purchase not found. sessionId:",
+        sessionId,
+        "paymentId:",
+        paymentId,
+      );
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
@@ -99,23 +111,36 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Update purchase status and save the payment_id
     const { error: updateError } = await supabase
       .from("purchases")
-      .update({ payment_status: paymentStatus })
+      .update({
+        payment_status: paymentStatus,
+        payment_id: paymentId || null,
+      })
       .eq("id", purchase.id);
 
     if (updateError) {
+      console.error("Webhook: failed to update purchase:", updateError);
       return NextResponse.json(
         { error: "Failed to update purchase" },
         { status: 500 },
       );
     }
 
+    console.log(
+      "Webhook: purchase updated to",
+      paymentStatus,
+      "for purchase",
+      purchase.id,
+    );
+
     return NextResponse.json({
       success: true,
       payment_status: paymentStatus,
     });
-  } catch {
+  } catch (error) {
+    console.error("Webhook handler error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
