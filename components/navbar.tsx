@@ -37,10 +37,10 @@ export function Navbar() {
             height={48}
             className="h-9 w-9 rounded-lg dark:brightness-110"
           />
-        </Link>
-          <span className="text-xl font-brand text-primary">
+          </Link>
+          <Link href="/" className="text-xl font-brand text-primary">
             ChainBooks
-          </span>
+          </Link>
         </div>
 
         <nav className="hidden items-center gap-6 md:flex">
