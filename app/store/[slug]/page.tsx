@@ -22,6 +22,7 @@ export default function BookDetailPage() {
   const [loading, setLoading] = useState(true);
   const [purchased, setPurchased] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -60,6 +61,7 @@ export default function BookDetailPage() {
     if (!book) return;
 
     setPurchasing(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/orders", {
@@ -76,12 +78,14 @@ export default function BookDetailPage() {
           setPurchasing(false);
           return;
         }
+        setError("Payment session failed. Please try again.");
         setPurchasing(false);
         return;
       }
 
       window.location.href = data.session_url;
     } catch {
+      setError("Something went wrong. Please try again.");
       setPurchasing(false);
     }
   }
@@ -183,6 +187,9 @@ export default function BookDetailPage() {
                   <ShoppingCart className="h-4 w-4" />
                   {purchasing ? "Processing..." : "Buy with NEAR"}
                 </Button>
+              )}
+              {error && (
+                <p className="text-sm text-destructive text-center">{error}</p>
               )}
             </div>
 

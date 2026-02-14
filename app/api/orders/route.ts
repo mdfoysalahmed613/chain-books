@@ -69,9 +69,10 @@ export async function POST(request: NextRequest) {
           "x-api-key": process.env.PINGPAY_API_KEY!,
         },
         body: JSON.stringify({
-          amount: {
-            assetId: "nep141:wrap.near",
-            amount: yoctoAmount.toString(),
+          amount: yoctoAmount.toString(),
+          asset: {
+            chain: "NEAR",
+            symbol: "wNEAR",
           },
           recipient: {
             address: process.env.PINGPAY_RECIPIENT_ADDRESS!,

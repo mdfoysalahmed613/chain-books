@@ -24,10 +24,6 @@ export default async function HomePage() {
     .order("created_at", { ascending: false })
     .limit(3);
 
-  const { count: totalBooks } = await supabase
-    .from("books")
-    .select("*", { count: "exact", head: true });
-
   return (
     <div className="flex flex-col">
       {/* Hero */}
@@ -65,8 +61,8 @@ export default async function HomePage() {
             {/* Stats row */}
             <div className="mt-12 flex items-center justify-center gap-8 text-center sm:gap-12">
               <div>
-                <p className="text-2xl font-bold sm:text-3xl">{totalBooks ?? 0}+</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Books Available</p>
+                <p className="text-2xl font-bold sm:text-3xl">0%</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">DRM Lock-in</p>
               </div>
               <div className="h-8 w-px bg-border" />
               <div>
