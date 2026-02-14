@@ -83,6 +83,12 @@ export default function BookDetailPage() {
         return;
       }
 
+      if(!data.session_url) {
+        setError("Payment session failed. Please try again.");
+        setPurchasing(false);
+        return;
+      }
+
       window.location.href = data.session_url;
     } catch {
       setError("Something went wrong. Please try again.");

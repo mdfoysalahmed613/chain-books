@@ -95,8 +95,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { session } = await pingpayRes.json();
-
+    const data = await pingpayRes.json();
+    const {session} = data;
+    console.log("PingPay session created:", data);
     // Upsert purchase record
     if (existingPurchase) {
       await supabase
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       session_id: session.sessionId,
-      session_url: session.sessionUrl,
+      session_url: data.sessionUrl,
       payment_id: session.paymentId || null,
     });
   } catch (error) {
