@@ -31,9 +31,23 @@ export async function POST(request: NextRequest) {
     const body = JSON.parse(rawBody);
     console.log("PingPay webhook received:", JSON.stringify(body));
 
-    // PingPay webhook payload: { id, type, resourceId, data, createdAt }
-    const eventType = body.type;
+    // PingPay webhook payload can be:
+    // Standard: { id, type, resourceId, data, createdAt }
+    // Flat:     { paymentId, status, sessionId, ... }
+    let eventType = body.type;
     const resourceId = body.resourceId;
+
+    // If no event type in wrapper, infer from flat payload status
+    if (!eventType && body.status) {
+      const status = body.status.toUpperCase();
+      if (status === "SUCCESS" || status === "COMPLETED" || status === "PAID") {
+        eventType = "payment.success";
+      } else if (status === "FAILED" || status === "EXPIRED" || status === "CANCELLED") {
+        eventType = "payment.failed";
+      } else if (status === "PENDING") {
+        eventType = "payment.pending";
+      }
+    }
 
     if (!eventType) {
       console.error("Webhook missing event type:", JSON.stringify(body));
@@ -48,10 +62,13 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    // Extract sessionId from all possible locations in the payload
+    // Extract sessionId and paymentId from all possible locations
+    // Standard wrapper: body.data.sessionId, body.resourceId
+    // Flat payload: body.sessionId, body.paymentId
     const sessionId =
       body.data?.sessionId || body.sessionId || body.data?.session_id;
-    const paymentId = resourceId || body.data?.paymentId || body.paymentId;
+    const paymentId =
+      resourceId || body.paymentId || body.data?.paymentId || body.data?.payment_id;
 
     let purchase = null;
 

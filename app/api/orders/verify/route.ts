@@ -73,11 +73,18 @@ export async function GET(request: NextRequest) {
     }
 
     const pingpayData = await pingpayRes.json();
+    console.log(
+      "PingPay session retrieve response for",
+      sessionId,
+      ":",
+      JSON.stringify(pingpayData),
+    );
+
     // Handle both wrapped { session: { status } } and flat { status } responses
     const sessionObj = pingpayData.session || pingpayData;
     const sessionStatus = sessionObj.status?.toUpperCase();
 
-    if (sessionStatus === "COMPLETED") {
+    if (sessionStatus === "COMPLETED" || sessionStatus === "SUCCESS" || sessionStatus === "PAID") {
       const paymentId = sessionObj.paymentId || purchase.payment_id;
 
       await supabase
