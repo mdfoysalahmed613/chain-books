@@ -4,11 +4,12 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = request.nextUrl.searchParams.get("session_id");
+    const purchaseId = request.nextUrl.searchParams.get("purchase_id");
+    const sessionIdParam = request.nextUrl.searchParams.get("session_id");
 
-    if (!sessionId) {
+    if (!purchaseId && !sessionIdParam) {
       return NextResponse.json(
-        { error: "session_id is required" },
+        { error: "purchase_id or session_id is required" },
         { status: 400 },
       );
     }
@@ -27,13 +28,25 @@ export async function GET(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    // Check if already completed in our database
-    const { data: purchase } = await supabase
-      .from("purchases")
-      .select("id, payment_status, session_id, payment_id, books(title)")
-      .eq("session_id", sessionId)
-      .eq("user_id", user.id)
-      .single();
+    // Look up purchase by purchase_id (preferred) or session_id (fallback)
+    let purchase;
+    if (purchaseId) {
+      const { data } = await supabase
+        .from("purchases")
+        .select("id, payment_status, session_id, payment_id, books(title)")
+        .eq("id", purchaseId)
+        .eq("user_id", user.id)
+        .single();
+      purchase = data;
+    } else {
+      const { data } = await supabase
+        .from("purchases")
+        .select("id, payment_status, session_id, payment_id, books(title)")
+        .eq("session_id", sessionIdParam!)
+        .eq("user_id", user.id)
+        .single();
+      purchase = data;
+    }
 
     if (!purchase) {
       return NextResponse.json({ error: "order_not_found" }, { status: 404 });
@@ -49,9 +62,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (purchase.payment_status === "failed") {
+      return NextResponse.json({
+        payment_status: "failed",
+        book_title: bookTitle,
+      });
+    }
+
+    // If no session_id stored yet, keep polling
+    if (!purchase.session_id) {
+      return NextResponse.json({
+        payment_status: "pending",
+        book_title: bookTitle,
+      });
+    }
+
     // Poll PingPay API to check checkout session status
     const pingpayRes = await fetch(
-      `https://pay.pingpay.io/api/checkout/sessions/${encodeURIComponent(sessionId)}`,
+      `https://pay.pingpay.io/api/checkout/sessions/${encodeURIComponent(purchase.session_id)}`,
       {
         headers: {
           "x-api-key": process.env.PINGPAY_API_KEY!,
@@ -75,7 +103,7 @@ export async function GET(request: NextRequest) {
     const pingpayData = await pingpayRes.json();
     console.log(
       "PingPay session retrieve response for",
-      sessionId,
+      purchase.session_id,
       ":",
       JSON.stringify(pingpayData),
     );

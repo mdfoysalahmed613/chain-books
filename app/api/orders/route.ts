@@ -56,6 +56,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Create or reuse purchase record BEFORE calling PingPay
+    // so we have a stable purchase_id for the successUrl
+    let purchaseId: string;
+
+    if (existingPurchase) {
+      purchaseId = existingPurchase.id;
+    } else {
+      const { data: newPurchase, error: purchaseError } = await supabase
+        .from("purchases")
+        .insert({
+          user_id: user.id,
+          book_id: book.id,
+          amount: book.price,
+          currency: "NEAR",
+          payment_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (purchaseError || !newPurchase) {
+        console.error("Purchase insert error:", purchaseError);
+        return NextResponse.json(
+          { error: "failed_to_create_order" },
+          { status: 500 },
+        );
+      }
+      purchaseId = newPurchase.id;
+    }
+
     // Convert NEAR price to yoctoNEAR (1 NEAR = 10^24 yoctoNEAR)
     const yoctoAmount = BigInt(Math.round(book.price * 1e6)) * BigInt(1e18);
 
@@ -78,7 +107,7 @@ export async function POST(request: NextRequest) {
             address: process.env.PINGPAY_RECIPIENT_ADDRESS!,
             chainId: "near-mainnet",
           },
-          successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/status?session_id={sessionId}`,
+          successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/status?purchase_id=${purchaseId}`,
           cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/store/${book.slug}`,
         }),
       },
@@ -96,39 +125,21 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await pingpayRes.json();
-    const {session} = data;
-    // Upsert purchase record
-    if (existingPurchase) {
-      await supabase
-        .from("purchases")
-        .update({
-          session_id: session.sessionId,
-          payment_id: session.paymentId || null,
-          payment_status: "pending",
-          amount: book.price,
-        })
-        .eq("id", existingPurchase.id);
-    } else {
-      const { error: purchaseError } = await supabase.from("purchases").insert({
-        user_id: user.id,
-        book_id: book.id,
+    const { session } = data;
+
+    // Update purchase with PingPay session details
+    await supabase
+      .from("purchases")
+      .update({
         session_id: session.sessionId,
         payment_id: session.paymentId || null,
-        amount: book.price,
-        currency: "NEAR",
         payment_status: "pending",
-      });
-
-      if (purchaseError) {
-        console.error("Purchase insert error:", purchaseError);
-        return NextResponse.json(
-          { error: "failed_to_create_order" },
-          { status: 500 },
-        );
-      }
-    }
+        amount: book.price,
+      })
+      .eq("id", purchaseId);
 
     return NextResponse.json({
+      purchase_id: purchaseId,
       session_id: session.sessionId,
       session_url: data.sessionUrl,
       payment_id: session.paymentId || null,

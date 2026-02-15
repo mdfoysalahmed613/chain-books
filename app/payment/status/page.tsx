@@ -11,7 +11,9 @@ type PaymentState = "polling" | "completed" | "failed" | "not_found" | "timeout"
 
 function PaymentStatusContent() {
   const searchParams = useSearchParams();
+  const purchaseId = searchParams.get("purchase_id");
   const sessionId = searchParams.get("session_id");
+  const identifier = purchaseId || sessionId;
   const { loading: authLoading } = useAuth();
 
   const [status, setStatus] = useState<PaymentState>("polling");
@@ -19,7 +21,7 @@ function PaymentStatusContent() {
   const notFoundCountRef = useRef(0);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!identifier) return;
     if (authLoading) return;
 
     let cancelled = false;
@@ -27,7 +29,10 @@ function PaymentStatusContent() {
 
     async function checkStatus(): Promise<PaymentState> {
       try {
-        const res = await fetch(`/api/orders/verify?session_id=${encodeURIComponent(sessionId!)}`);
+        const param = purchaseId
+          ? `purchase_id=${encodeURIComponent(purchaseId)}`
+          : `session_id=${encodeURIComponent(sessionId!)}`;
+        const res = await fetch(`/api/orders/verify?${param}`);
 
         if (res.ok) {
           const result = await res.json();
@@ -84,9 +89,9 @@ function PaymentStatusContent() {
       clearTimeout(timeoutId);
       clearTimeout(maxTimeout);
     };
-  }, [sessionId, authLoading]);
+  }, [identifier, purchaseId, sessionId, authLoading]);
 
-  if (!sessionId) {
+  if (!identifier) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <XCircle className="mx-auto h-12 w-12 text-destructive" />
